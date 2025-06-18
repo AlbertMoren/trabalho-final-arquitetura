@@ -11,6 +11,14 @@ main:
 for_loop_start:
 	bge $t0, $t1, for_loop_end #se t0 >= t1, sai do loop
 	addi $t0,$t0, 1
+	jal inputAndOutput 
+	j for_loop_start
+for_loop_end:
+	li $v0, 10
+	syscall 
+
+#funções 
+inputAndOutput:
 	# pedir valor ao usuario
 	li $v0, 4
 	la $a0, input_valor
@@ -30,7 +38,4 @@ for_loop_start:
 	li $v0, 4
 	la $a0, quebra_linha
 	syscall
-	j for_loop_start
-for_loop_end:
-	li $v0, 10
-	syscall 
+	jr $ra
