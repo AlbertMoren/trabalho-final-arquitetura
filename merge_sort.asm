@@ -28,8 +28,9 @@ calcular_soma:
 
 loop_soma:
     bge $t0, $a1, fim_loop_soma    # Se i >= tamanho, termina o loop
-    sll $t1, $t0, 2                # t1 = i * 4 (offset em bytes)
+    sll $t1, $t0, 2                # t1 = i * 4 (offset em bytes), fazemos isso para ir pro endereço do proximo inteiro, já que cada inteiro tem 4 bytes
     add $t2, $a0, $t1              # t2 = endereço base + offset
+    #Aqui embaixo podemos usar 0( ) pois $t2 já contém o endereço exato da array que está sendo passada como parametro
     lw  $t3, 0($t2)                # t3 = array[i]
     add $v0, $v0, $t3              # soma += array[i]
     addi $t0, $t0, 1               # i++
@@ -102,7 +103,7 @@ fim_loop_input:
     move $a1, $s6                  # Tamanho do array
     jal imprimir_array             # Chama função para imprimir array
 
-    # --- Chama função com retorno e imprime o resultado (VERSÃO CORRIGIDA) ---
+    # Calcula a soma de todos os elementos da array e guarda em $t0
     la $a0, meu_array              # Endereço do array
     move $a1, $s6                  # Tamanho do array
     jal calcular_soma              # Chama calcular_soma
@@ -126,41 +127,46 @@ fim_loop_input:
 
 # ---------------------------------------------------------------------
 # Função: merge_sort
+# $a0 = Endereço do array
+# $a1 = Endereço do buffer temporário
+# $a2 = Índice inicial (esquerda)
+# $a3 = Índice final (direita)
 # ---------------------------------------------------------------------
 merge_sort:
-    addi $sp, $sp, -24             # Reserva espaço na pilha para salvar registradores
-    sw $ra, 20($sp)                # Salva endereço de retorno
-    sw $s0, 16($sp)                # Salva $s0
-    sw $s1, 12($sp)                # Salva $s1
-    sw $s2, 8($sp)                 # Salva $s2
-    sw $s3, 4($sp)                 # Salva $s3
+    # O passo abaixo é necessário, pois precisamos salvar os parametros anteriores a recursão
+    addi $sp, $sp, -24             # Reserva espaço na pilha para salvar registradores que vieram antes da recursão
+    sw $ra, 20($sp)                # Salva endereço de retorno na pilha
+    sw $s0, 16($sp)                # Salva $s0 na pilha
+    sw $s1, 12($sp)                # Salva $s1 na pilha
+    sw $s2, 8($sp)                 # Salva $s2 na pilha
+    sw $s3, 4($sp)                 # Salva $s3 na pilha
 
     move $s0, $a0                  # Salva argumentos em registradores salvos
     move $s1, $a1
     move $s2, $a2
     move $s3, $a3
 
-    slt $t0, $s2, $s3              # Se esquerda < direita
-    beq $t0, $zero, fim_merge_sort # Se não, termina
-
+    slt $t0, $s2, $s3              # Calcula o booleano esquerda < direita e guarda o resultado em $t0
+    beq $t0, $zero, fim_merge_sort # Se $t0 é 0, então o programa deve terminar
+    #Se não
     add $t0, $s2, $s3              # t0 = esquerda + direita
     sra $t0, $t0, 1                # t0 = (esquerda + direita) / 2 (meio)
-    sw $t0, 0($sp)                 # Salva meio na pilha
-
+    sw $t0, 0($sp)                 # Salva meio na pilha em 0($sp)
+	
     move $a0, $s0                  # Prepara chamada recursiva para metade esquerda
     move $a1, $s1
     move $a2, $s2
     move $a3, $t0
     jal merge_sort
 
-    lw $t0, 0($sp)                 # Recupera meio da pilha
+    lw $t0, 0($sp)                 # Recupera meio da pilha pelo 0($sp)
     move $a0, $s0                  # Prepara chamada recursiva para metade direita
     move $a1, $s1
     addi $a2, $t0, 1
-    move $a3, $s3
-    jal merge_sort
+    move $a3, $s3                  
+    jal merge_sort	           # Chamada recursiva de função
 
-    lw $t0, 0($sp)                 # Recupera meio da pilha
+    lw $t0, 0($sp)                 # Recupera meio da pilha pelo 0($sp)
     move $a0, $s0                  # Prepara chamada para merge
     move $a1, $s1
     move $a2, $s2
@@ -171,11 +177,11 @@ merge_sort:
     addi $sp, $sp, 4               # Libera espaço da pilha
 
 fim_merge_sort:
-    lw $s3, 4($sp)                 # Restaura registradores salvos
+    lw $s3, 4($sp)                 # Restaura registradores salvos antes da chamada recursiva
     lw $s2, 8($sp)
     lw $s1, 12($sp)
     lw $s0, 16($sp)
-    lw $ra, 20($sp)
+    lw $ra, 20($sp)                # Muito necessário restaurar o $ra passado, para que a camada anterior de recursão consiga voltar para o endereço correto
     addi $sp, $sp, 24              # Libera espaço da pilha
     jr $ra                         # Retorna
 
@@ -200,16 +206,16 @@ merge:
 loop_copia:
     bgt $t5, $t4, fim_copia        # Se t5 > direita, termina cópia
     sll $t6, $t5, 2                # t6 = t5 * 4 (offset)
-    add $t7, $t0, $t6              # t7 = endereço original
-    lw  $t8, 0($t7)                # t8 = valor original
-    add $t7, $t1, $t6              # t7 = endereço temporário
-    sw  $t8, 0($t7)                # Copia valor
+    add $t7, $t0, $t6              # t7 = endereço original da array a ser ordenada
+    lw  $t8, 0($t7)                # Está linha copia o valor que está em $t7 e coloca em t8
+    add $t7, $t1, $t6              # t7 agora é o endereço temporário do local do elemento que está sendo copiado na array temporaria/auxiliar
+    sw  $t8, 0($t7)                # Salva o valor copiado em $t8 para o endereço correta da array temporaria
     addi $t5, $t5, 1               # Próximo índice
     j loop_copia
 fim_copia:
-    move $s0, $t2                  # s0 = i = esquerda
-    addi $s1, $t3, 1               # s1 = j = meio + 1
-    move $s2, $t2                  # s2 = k = esquerda
+    move $s0, $t2                  # s0 = i = esquerda, indice do lado esquerdo a ser iterado
+    addi $s1, $t3, 1               # s1 = j = meio + 1, indice do lado direito a ser iterado
+    move $s2, $t2                  # s2 = k = esquerda, indice de todo array a ser iterado
 
 loop_principal:
     bgt $s0, $t3, fim_loop_principal   # Se i > meio, termina
@@ -221,7 +227,8 @@ loop_principal:
     add $t6, $t1, $t5                  # t6 = endereço temporário[j]
     lw  $s4, 0($t6)                    # s4 = temp[j]
     bgt $s3, $s4, else_copia_j         # Se temp[i] > temp[j], vai para else
-
+#Estrutura if_else simulada
+#if_copia_i
     sll $t5, $s2, 2                    # t5 = k * 4
     add $t6, $t0, $t5                  # t6 = endereço array[k]
     sw  $s3, 0($t6)                    # array[k] = temp[i]
@@ -236,7 +243,7 @@ fim_if_merge:
     addi $s2, $s2, 1                   # k++
     j loop_principal
 fim_loop_principal:
-
+# Aqui fazemos a limpeza do Merge, isto acontece quando um dos lados se esgota e então temos que jogar todos os valores restantes do lado não esgotada na array
 loop_limpeza_i:
     bgt $s0, $t3, fim_limpeza_i        # Se i > meio, termina
     sll $t5, $s0, 2                    # t5 = i * 4
