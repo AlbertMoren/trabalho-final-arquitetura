@@ -1,289 +1,293 @@
 .data
-meu_array:       .space 200      # Espaço para até 50 inteiros
-array_temporario:  .space 200      # Buffer temporário do mesmo tamanho máximo
+meu_array:       .space 200      # Reserva 200 bytes para até 50 inteiros (4 bytes cada)
+array_temporario:  .space 200    # Buffer temporário do mesmo tamanho para o merge sort
 
-# Strings para Interação com o Usuário
-prompt_tamanho:  .asciiz "Quantos numeros voce deseja ordenar? "
-prompt_numero:   .asciiz "Digite o numero "
-prompt_dois_pontos: .asciiz ": "
-label_antes:     .asciiz "\nArray Original: "
-label_depois:    .asciiz "\nArray Ordenado: "
-label_soma:      .asciiz "\nA soma dos valores do array e: "
-espaco:          .asciiz " "
+# Strings para interação com o usuário
+prompt_tamanho:  .asciiz "Quantos numeros voce deseja ordenar? "  # Pergunta quantidade de números
+prompt_numero:   .asciiz "Digite o numero "                      # Pergunta valor de cada número
+prompt_dois_pontos: .asciiz ": "                                 # Dois pontos para formatar entrada
+label_antes:     .asciiz "\nArray Original: "                    # Label para imprimir array antes da ordenação
+label_depois:    .asciiz "\nArray Ordenado: "                    # Label para imprimir array depois da ordenação
+label_soma:      .asciiz "\nA soma dos valores do array e: "     # Label para imprimir soma dos valores
+espaco:          .asciiz " "                                     # Espaço para separar números na impressão
 
 .text
 .globl main
 
 # --- PONTO DE ENTRADA SEGURO ---
-j main      # Salta incondicionalmente para o início da 'main'.
-nop         # Instrução de segurança (delay slot), boa prática após um salto.
+j main      # Salta para a função main (entrada principal do programa)
+nop         # Delay slot, boa prática após um salto incondicional
 # -----------------------------
 
 # ---------------------------------------------------------------------
 # Função: calcular_soma(array, tamanho) -> retorna a soma em $v0
 # ---------------------------------------------------------------------
 calcular_soma:
-    li $v0, 0           # soma = 0
-    li $t0, 0           # i = 0
+    li $v0, 0           # Inicializa soma em $v0 com 0
+    li $t0, 0           # Inicializa índice i = 0
 
 loop_soma:
-    bge $t0, $a1, fim_loop_soma
-    sll $t1, $t0, 2
-    add $t2, $a0, $t1
-    lw  $t3, 0($t2)
-    add $v0, $v0, $t3
-    addi $t0, $t0, 1
-    j loop_soma
+    bge $t0, $a1, fim_loop_soma    # Se i >= tamanho, termina o loop
+    sll $t1, $t0, 2                # t1 = i * 4 (offset em bytes)
+    add $t2, $a0, $t1              # t2 = endereço base + offset
+    lw  $t3, 0($t2)                # t3 = array[i]
+    add $v0, $v0, $t3              # soma += array[i]
+    addi $t0, $t0, 1               # i++
+    j loop_soma                    # Volta para o início do loop
 
 fim_loop_soma:
-    jr $ra
+    jr $ra                         # Retorna para quem chamou
 
 # ---------------------------------------------------------------------
 # Função Principal
 # ---------------------------------------------------------------------
 main:
     # --- Bloco de Input do Usuário ---
-    li $v0, 4
-    la $a0, prompt_tamanho
-    syscall
+    li $v0, 4                      # Código para imprimir string
+    la $a0, prompt_tamanho         # Endereço da string
+    syscall                        # Imprime "Quantos numeros voce deseja ordenar?"
 
-    li $v0, 5
-    syscall
-    move $s6, $v0  # Salva o tamanho do array em $s6
+    li $v0, 5                      # Código para ler inteiro
+    syscall                        # Lê o número digitado
+    move $s6, $v0                  # Salva o tamanho do array em $s6
 
-    li $t0, 0
-    la $t1, meu_array
+    li $t0, 0                      # Inicializa índice i = 0
+    la $t1, meu_array              # t1 = endereço base do array
 loop_input:
-    bge $t0, $s6, fim_loop_input
+    bge $t0, $s6, fim_loop_input   # Se i >= tamanho, termina o loop
 
-    li $v0, 4
-    la $a0, prompt_numero
+    li $v0, 4                      # Imprime string
+    la $a0, prompt_numero          # "Digite o numero "
     syscall
-    li $v0, 1
-    move $a0, $t0
-    addi $a0, $a0, 1
+    li $v0, 1                      # Imprime inteiro
+    move $a0, $t0                  # Passa índice i
+    addi $a0, $a0, 1               # Mostra i+1 para o usuário
     syscall
-    li $v0, 4
-    la $a0, prompt_dois_pontos
-    syscall
-
-    li $v0, 5
+    li $v0, 4                      # Imprime string
+    la $a0, prompt_dois_pontos     # ": "
     syscall
 
-    sll $t2, $t0, 2
-    add $t3, $t1, $t2
-    sw $v0, 0($t3)
+    li $v0, 5                      # Lê inteiro do usuário
+    syscall
 
-    addi $t0, $t0, 1
-    j loop_input
+    sll $t2, $t0, 2                # t2 = i * 4 (offset)
+    add $t3, $t1, $t2              # t3 = endereço base + offset
+    sw $v0, 0($t3)                 # Salva valor digitado no array
+
+    addi $t0, $t0, 1               # i++
+    j loop_input                   # Repete para o próximo número
 fim_loop_input:
 
-    # Imprime o estado inicial
+    # Imprime o estado inicial do array
     li $v0, 4
-    la $a0, label_antes
+    la $a0, label_antes            # "\nArray Original: "
     syscall
-    la $a0, meu_array
-    move $a1, $s6
-    jal imprimir_array
+    la $a0, meu_array              # Endereço do array
+    move $a1, $s6                  # Tamanho do array
+    jal imprimir_array             # Chama função para imprimir array
 
     # --- Prepara a chamada inicial para o Merge Sort ---
-    la $a0, meu_array
-    la $a1, array_temporario
-    li $a2, 0
-    move $a3, $s6
-    addi $a3, $a3, -1
-    jal merge_sort
+    la $a0, meu_array              # Endereço do array
+    la $a1, array_temporario       # Endereço do buffer temporário
+    li $a2, 0                      # Índice inicial (esquerda)
+    move $a3, $s6                  # Índice final (direita)
+    addi $a3, $a3, -1              # Ajusta para último índice válido
+    jal merge_sort                 # Chama merge_sort
 
-    # Imprime o estado final
+    # Imprime o estado final do array ordenado
     li $v0, 4
-    la $a0, label_depois
+    la $a0, label_depois           # "\nArray Ordenado: "
     syscall
-    la $a0, meu_array
-    move $a1, $s6
-    jal imprimir_array
+    la $a0, meu_array              # Endereço do array
+    move $a1, $s6                  # Tamanho do array
+    jal imprimir_array             # Chama função para imprimir array
 
     # --- Chama função com retorno e imprime o resultado (VERSÃO CORRIGIDA) ---
-    la $a0, meu_array
-    move $a1, $s6
-    jal calcular_soma
+    la $a0, meu_array              # Endereço do array
+    move $a1, $s6                  # Tamanho do array
+    jal calcular_soma              # Chama calcular_soma
 
-    # Salva o resultado de $v0 em um lugar seguro ($t0) IMEDIATAMENTE
-    move $t0, $v0
+    move $t0, $v0                  # Salva o resultado da soma em $t0
 
     # Imprime o label "A soma é:"
     li $v0, 4
-    la $a0, label_soma
+    la $a0, label_soma             # "\nA soma dos valores do array e: "
     syscall
     
-    # Imprime o resultado que foi salvo em $t0
+    # Imprime o resultado da soma
     li $v0, 1
     move $a0, $t0
     syscall
     # --- Fim do Bloco Corrigido ---
 
     # Fim do programa
-    li $v0, 10
+    li $v0, 10                     # Código para encerrar o programa
     syscall
 
 # ---------------------------------------------------------------------
 # Função: merge_sort
 # ---------------------------------------------------------------------
 merge_sort:
-    addi $sp, $sp, -24
-    sw $ra, 20($sp)
-    sw $s0, 16($sp)
-    sw $s1, 12($sp)
-    sw $s2, 8($sp)
-    sw $s3, 4($sp)
+    addi $sp, $sp, -24             # Reserva espaço na pilha para salvar registradores
+    sw $ra, 20($sp)                # Salva endereço de retorno
+    sw $s0, 16($sp)                # Salva $s0
+    sw $s1, 12($sp)                # Salva $s1
+    sw $s2, 8($sp)                 # Salva $s2
+    sw $s3, 4($sp)                 # Salva $s3
 
-    move $s0, $a0
+    move $s0, $a0                  # Salva argumentos em registradores salvos
     move $s1, $a1
     move $s2, $a2
     move $s3, $a3
 
-    slt $t0, $s2, $s3
-    beq $t0, $zero, fim_merge_sort
+    slt $t0, $s2, $s3              # Se esquerda < direita
+    beq $t0, $zero, fim_merge_sort # Se não, termina
 
-    add $t0, $s2, $s3
-    sra $t0, $t0, 1
-    sw $t0, 0($sp)
+    add $t0, $s2, $s3              # t0 = esquerda + direita
+    sra $t0, $t0, 1                # t0 = (esquerda + direita) / 2 (meio)
+    sw $t0, 0($sp)                 # Salva meio na pilha
 
-    move $a0, $s0
+    move $a0, $s0                  # Prepara chamada recursiva para metade esquerda
     move $a1, $s1
     move $a2, $s2
     move $a3, $t0
     jal merge_sort
 
-    lw $t0, 0($sp)
-    move $a0, $s0
+    lw $t0, 0($sp)                 # Recupera meio da pilha
+    move $a0, $s0                  # Prepara chamada recursiva para metade direita
     move $a1, $s1
     addi $a2, $t0, 1
     move $a3, $s3
     jal merge_sort
 
-    lw $t0, 0($sp)
-    move $a0, $s0
+    lw $t0, 0($sp)                 # Recupera meio da pilha
+    move $a0, $s0                  # Prepara chamada para merge
     move $a1, $s1
     move $a2, $s2
     move $a3, $t0
-    addi $sp, $sp, -4
+    addi $sp, $sp, -4              # Reserva espaço para salvar $s3
     sw $s3, 0($sp)
     jal merge
-    addi $sp, $sp, 4
+    addi $sp, $sp, 4               # Libera espaço da pilha
 
 fim_merge_sort:
-    lw $s3, 4($sp)
+    lw $s3, 4($sp)                 # Restaura registradores salvos
     lw $s2, 8($sp)
     lw $s1, 12($sp)
     lw $s0, 16($sp)
     lw $ra, 20($sp)
-    addi $sp, $sp, 24
-    jr $ra
+    addi $sp, $sp, 24              # Libera espaço da pilha
+    jr $ra                         # Retorna
 
 # ---------------------------------------------------------------------
 # Função: merge
 # ---------------------------------------------------------------------
 merge:
-    addi $sp, $sp, -20
-    sw $s0, 16($sp)
+    addi $sp, $sp, -20             # Reserva espaço na pilha
+    sw $s0, 16($sp)                # Salva registradores usados
     sw $s1, 12($sp)
     sw $s2, 8($sp)
     sw $s3, 4($sp)
     sw $s4, 0($sp)
 
-    move $t0, $a0
-    move $t1, $a1
-    move $t2, $a2
-    move $t3, $a3
-    lw $t4, 20($sp)
-    move $t5, $t2
+    move $t0, $a0                  # t0 = array original
+    move $t1, $a1                  # t1 = array temporário
+    move $t2, $a2                  # t2 = esquerda
+    move $t3, $a3                  # t3 = meio
+    lw $t4, 20($sp)                # t4 = direita
+    move $t5, $t2                  # t5 = índice de cópia
+
 loop_copia:
-    bgt $t5, $t4, fim_copia
-    sll $t6, $t5, 2
-    add $t7, $t0, $t6
-    lw  $t8, 0($t7)
-    add $t7, $t1, $t6
-    sw  $t8, 0($t7)
-    addi $t5, $t5, 1
+    bgt $t5, $t4, fim_copia        # Se t5 > direita, termina cópia
+    sll $t6, $t5, 2                # t6 = t5 * 4 (offset)
+    add $t7, $t0, $t6              # t7 = endereço original
+    lw  $t8, 0($t7)                # t8 = valor original
+    add $t7, $t1, $t6              # t7 = endereço temporário
+    sw  $t8, 0($t7)                # Copia valor
+    addi $t5, $t5, 1               # Próximo índice
     j loop_copia
 fim_copia:
-    move $s0, $t2
-    addi $s1, $t3, 1
-    move $s2, $t2
+    move $s0, $t2                  # s0 = i = esquerda
+    addi $s1, $t3, 1               # s1 = j = meio + 1
+    move $s2, $t2                  # s2 = k = esquerda
+
 loop_principal:
-    bgt $s0, $t3, fim_loop_principal
-    bgt $s1, $t4, fim_loop_principal
-    sll $t5, $s0, 2
-    add $t6, $t1, $t5
-    lw  $s3, 0($t6)
-    sll $t5, $s1, 2
-    add $t6, $t1, $t5
-    lw  $s4, 0($t6)
-    bgt $s3, $s4, else_copia_j
-    sll $t5, $s2, 2
-    add $t6, $t0, $t5
-    sw  $s3, 0($t6)
-    addi $s0, $s0, 1
+    bgt $s0, $t3, fim_loop_principal   # Se i > meio, termina
+    bgt $s1, $t4, fim_loop_principal   # Se j > direita, termina
+    sll $t5, $s0, 2                    # t5 = i * 4
+    add $t6, $t1, $t5                  # t6 = endereço temporário[i]
+    lw  $s3, 0($t6)                    # s3 = temp[i]
+    sll $t5, $s1, 2                    # t5 = j * 4
+    add $t6, $t1, $t5                  # t6 = endereço temporário[j]
+    lw  $s4, 0($t6)                    # s4 = temp[j]
+    bgt $s3, $s4, else_copia_j         # Se temp[i] > temp[j], vai para else
+
+    sll $t5, $s2, 2                    # t5 = k * 4
+    add $t6, $t0, $t5                  # t6 = endereço array[k]
+    sw  $s3, 0($t6)                    # array[k] = temp[i]
+    addi $s0, $s0, 1                   # i++
     j fim_if_merge
 else_copia_j:
-    sll $t5, $s2, 2
-    add $t6, $t0, $t5
-    sw  $s4, 0($t6)
-    addi $s1, $s1, 1
+    sll $t5, $s2, 2                    # t5 = k * 4
+    add $t6, $t0, $t5                  # t6 = endereço array[k]
+    sw  $s4, 0($t6)                    # array[k] = temp[j]
+    addi $s1, $s1, 1                   # j++
 fim_if_merge:
-    addi $s2, $s2, 1
+    addi $s2, $s2, 1                   # k++
     j loop_principal
 fim_loop_principal:
+
 loop_limpeza_i:
-    bgt $s0, $t3, fim_limpeza_i
-    sll $t5, $s0, 2
-    add $t6, $t1, $t5
-    lw  $s3, 0($t6)
-    sll $t5, $s2, 2
-    add $t6, $t0, $t5
-    sw  $s3, 0($t6)
-    addi $s0, $s0, 1
-    addi $s2, $s2, 1
+    bgt $s0, $t3, fim_limpeza_i        # Se i > meio, termina
+    sll $t5, $s0, 2                    # t5 = i * 4
+    add $t6, $t1, $t5                  # t6 = endereço temp[i]
+    lw  $s3, 0($t6)                    # s3 = temp[i]
+    sll $t5, $s2, 2                    # t5 = k * 4
+    add $t6, $t0, $t5                  # t6 = endereço array[k]
+    sw  $s3, 0($t6)                    # array[k] = temp[i]
+    addi $s0, $s0, 1                   # i++
+    addi $s2, $s2, 1                   # k++
     j loop_limpeza_i
 fim_limpeza_i:
+
 loop_limpeza_j:
-    bgt $s1, $t4, fim_limpeza_j
-    sll $t5, $s1, 2
-    add $t6, $t1, $t5
-    lw  $s4, 0($t6)
-    sll $t5, $s2, 2
-    add $t6, $t0, $t5
-    sw  $s4, 0($t6)
-    addi $s1, $s1, 1
-    addi $s2, $s2, 1
+    bgt $s1, $t4, fim_limpeza_j        # Se j > direita, termina
+    sll $t5, $s1, 2                    # t5 = j * 4
+    add $t6, $t1, $t5                  # t6 = endereço temp[j]
+    lw  $s4, 0($t6)                    # s4 = temp[j]
+    sll $t5, $s2, 2                    # t5 = k * 4
+    add $t6, $t0, $t5                  # t6 = endereço array[k]
+    sw  $s4, 0($t6)                    # array[k] = temp[j]
+    addi $s1, $s1, 1                   # j++
+    addi $s2, $s2, 1                   # k++
     j loop_limpeza_j
 fim_limpeza_j:
-    lw $s4, 0($sp)
+    lw $s4, 0($sp)                     # Restaura registradores salvos
     lw $s3, 4($sp)
     lw $s2, 8($sp)
     lw $s1, 12($sp)
     lw $s0, 16($sp)
-    addi $sp, $sp, 20
-    jr $ra
+    addi $sp, $sp, 20                  # Libera espaço da pilha
+    jr $ra                             # Retorna
 
 # ---------------------------------------------------------------------
 # Função: imprimir_array
 # ---------------------------------------------------------------------
 imprimir_array:
-    move $s0, $a0
-    li $t0, 0
+    move $s0, $a0                  # s0 = endereço do array
+    li $t0, 0                      # i = 0
 loop_imprimir:
-    bge $t0, $a1, fim_loop_imprimir
-    sll $t1, $t0, 2
-    add $t2, $s0, $t1
-    lw  $t3, 0($t2)
-    li $v0, 1
-    move $a0, $t3
+    bge $t0, $a1, fim_loop_imprimir    # Se i >= tamanho, termina
+    sll $t1, $t0, 2                    # t1 = i * 4
+    add $t2, $s0, $t1                  # t2 = endereço array[i]
+    lw  $t3, 0($t2)                    # t3 = array[i]
+    li $v0, 1                          # Código para imprimir inteiro
+    move $a0, $t3                      # Passa valor para imprimir
     syscall
-    li $v0, 4
-    la $a0, espaco
+    li $v0, 4                          # Código para imprimir string
+    la $a0, espaco                     # Imprime espaço
     syscall
-    addi $t0, $t0, 1
+    addi $t0, $t0, 1                   # i++
     j loop_imprimir
 fim_loop_imprimir:
-    jr $ra
+    jr $ra                             # Retorna
